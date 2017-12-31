@@ -43,17 +43,17 @@ hdf = pd.HDFStore(output_file)
 os.chdir(input_path)
 # Unzip Gzip file
 i = 0
-for file in os.listdir(input_path):
-    unzipped_file = file.strip('.gz')
+for filename in os.listdir(input_path):
+    unzipped_file = filename.strip('.gz')
+    out_name = 'QUOTES' + unzipped_file.strip('EQY_US_ALL_NBBO')
     hdf5_out = hdf_group + unzipped_file
 
     if file.endswith('.gz') is False and ('.') not in file:
         # print(f'Unzipping file {i} out of {len(os.listdir(input_path))}')
         # unzip_cmd = f'pigz -v -dp 1 {file}'
         # os.system(unzip_cmd)
-        # Append to HDF5 file/group
-        print(file)
-        df = dd.read_csv(unzipped_file, sep="\n", delimiter="|", skiprows=4,
+
+        df = dd.read_csv(unzipped_filename, sep="\n", delimiter="|", skiprows=4,
                          names=PreprocessQuoteLabels(), assume_missing=False,
                          usecols=PreprocessQuoteLabels(),
                          dtype={'Time': 'str', 'Participant_Timestamp': 'str',
@@ -62,7 +62,14 @@ for file in os.listdir(input_path):
                                 'FINRA_BBO_Indicator': 'float64',
                                 'NBBO_Quote_Condition': 'object',
                                 'SIP_Generated_Message_Identifier': 'object'})
-        print(dd.compute(df.count()))
+
+        # Drop columns that are generally blank/non-meaningful
+        df.drop(['FINRA_ADF_Timestamp', 'LULD_Indicator',
+                 'LULD_NBBO_Indicator', 'SIP_Generated_Message_Identifier',
+                 'Best_Offer_FINRA_Market_Maker_ID'], inplace=True)
+
+
+
         # hdf.put(hdf5_out, df)
         break
 i += 1
