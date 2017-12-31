@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-import gzip
 import os
 import dask.dataframe as dd
+import dask.array as da
 import pandas as pd
 
 
@@ -23,7 +23,6 @@ def PreprocessQuoteLabels():
     'Participant_Timestamp|FINRA_ADF_Timestamp'
 
     quote_labels = quote_labels.split('|')
-    print(len(quote_labels))
     return quote_labels
 
 
@@ -48,30 +47,42 @@ for filename in os.listdir(input_path):
     out_name = 'QUOTES' + unzipped_file.strip('EQY_US_ALL_NBBO')
     hdf5_out = hdf_group + unzipped_file
 
-    if file.endswith('.gz') is False and ('.') not in file:
+    if filename.endswith('.gz') is False and ('.') not in filename:
         # print(f'Unzipping file {i} out of {len(os.listdir(input_path))}')
         # unzip_cmd = f'pigz -v -dp 1 {file}'
         # os.system(unzip_cmd)
 
-        df = dd.read_csv(unzipped_filename, sep="\n", delimiter="|", skiprows=4,
-                         names=PreprocessQuoteLabels(), assume_missing=False,
-                         usecols=PreprocessQuoteLabels(),
-                         dtype={'Time': 'str', 'Participant_Timestamp': 'str',
-                                'Best_Bid_FINRA_Market_Maker_ID': 'str',
-                                'FINRA_ADF_Timestamp': 'str',
-                                'FINRA_BBO_Indicator': 'float64',
-                                'NBBO_Quote_Condition': 'object',
-                                'SIP_Generated_Message_Identifier': 'object'})
-
+        quotes_day_df = dd.read_csv(
+            unzipped_file,
+            sep="\n",
+            delimiter="|",
+            skiprows=4,
+            names=PreprocessQuoteLabels(),
+            usecols=PreprocessQuoteLabels(),
+            assume_missing=True,
+            dtype={
+                'Time': 'str',
+                'Participant_Timestamp': 'str',
+                'Best_Bid_FINRA_Market_Maker_ID': 'str',
+                'FINRA_ADF_Timestamp': 'str',
+                'FINRA_BBO_Indicator': 'float64',
+                'NBBO_Quote_Condition': 'object',
+                'SIP_Generated_Message_Identifier': 'object'
+            })
         # Drop columns that are generally blank/non-meaningful
-        df.drop(['FINRA_ADF_Timestamp', 'LULD_Indicator',
-                 'LULD_NBBO_Indicator', 'SIP_Generated_Message_Identifier',
-                 'Best_Offer_FINRA_Market_Maker_ID'], inplace=True)
+        quotes_day_df = quotes_day_df.drop(
+            [
+                'FINRA_ADF_Timestamp', 'LULD_Indicator', 'LULD_NBBO_Indicator',
+                'SIP_Generated_Message_Identifier',
+                'Best_Offer_FINRA_Market_Maker_ID'
+            ],
+            axis=1)
+        quotes_day_df.to_hdf('/home/jake/Desktop/taqData.h5',
+                             f'/quotes/{hdf5_out}', complevel=4)
+        # Output dask df to dask array -23 cols
+        # quotes_day_array = quotes_day_df.to_records()
+        # print(quotes_day_array.shape)
 
-
-
-        # hdf.put(hdf5_out, df)
-        break
 i += 1
 
 hdf.close()
